@@ -21,8 +21,29 @@ export default function App() {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingText, setLoadingText] = useState('正在分析您的需求...');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isLoading) {
+      const texts = [
+        '正在分析您的需求...',
+        '正在调用 Google 搜索实时信息...',
+        '正在为您定制专属行程...',
+        '正在整理交通和天气数据...',
+        '深度思考中，马上就好...'
+      ];
+      let i = 0;
+      setLoadingText(texts[0]);
+      interval = setInterval(() => {
+        i = (i + 1) % texts.length;
+        setLoadingText(texts[i]);
+      }, 2500);
+    }
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
   // Use a ref to store the chat instance so it persists across renders
   const chatRef = useRef<any>(null);
 
@@ -69,17 +90,29 @@ export default function App() {
         { id: modelMessageId, role: 'model', content: '' },
       ]);
 
+      let fullText = '';
       for await (const chunk of responseStream) {
         const c = chunk as GenerateContentResponse;
         if (c.text) {
+          fullText += c.text;
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === modelMessageId
-                ? { ...msg, content: msg.content + c.text }
+                ? { ...msg, content: fullText }
                 : msg
             )
           );
         }
+      }
+
+      if (!fullText.trim()) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === modelMessageId
+              ? { ...msg, content: '抱歉，我没有查到相关信息，或者网络请求超时了。请换个问法试试。' }
+              : msg
+          )
+        );
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -205,7 +238,7 @@ export default function App() {
               </div>
               <div className="bg-white border border-stone-100 rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm flex items-center gap-2 text-stone-500">
                 <Loader2 size={18} className="animate-spin" />
-                <span className="text-sm font-medium">正在为你规划行程...</span>
+                <span className="text-sm font-medium">{loadingText}</span>
               </div>
             </div>
           )}
